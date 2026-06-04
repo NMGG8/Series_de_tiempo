@@ -1,0 +1,192 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Paquetes ──────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{float}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+% ── Portada ───────────────────────────────────────────────────────────────────
+\title{%
+  \LARGE \textbf{Series de Tiempo} \\[0.4em]
+  \large Fundamentos y Aplicaciones \\[0.4em]
+  \normalsize Repositorio Académico
+}
+\author{}
+\date{}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Descripción General}
+
+Repositorio académico para el estudio teórico y aplicado de series de tiempo,
+con énfasis en modelos clásicos y financieros. El objetivo es comprender los
+procesos estocásticos, la identificación, estimación y validación de modelos,
+y su aplicación en datos económicos y financieros.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Contenido del Curso}
+
+\subsection{Introducción a Series de Tiempo}
+
+\begin{itemize}
+  \item ¿Qué es una serie de tiempo?
+  \item Componentes:
+    \begin{itemize}
+      \item Tendencia
+      \item Estacionalidad
+      \item Ciclo
+      \item Ruido
+    \end{itemize}
+  \item Estacionariedad:
+    \begin{itemize}
+      \item Estricta
+      \item Débil
+    \end{itemize}
+  \item Transformaciones comunes:
+    \begin{itemize}
+      \item Diferenciación
+      \item Logaritmos
+      \item Desestacionalización
+    \end{itemize}
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\subsection{Procesos Estocásticos y Modelos ARIMA}
+
+\subsubsection{Modelos ARIMA$(p,d,q)$}
+
+\begin{itemize}
+  \item \textbf{AR (Autorregresivo)}
+  \item \textbf{MA (Media Móvil)}
+  \item \textbf{Integración (diferenciación)}
+  \item Interpretación económica y estadística
+  \item Condiciones de estacionariedad e invertibilidad
+\end{itemize}
+
+\subsubsection{Modelos SARIMA$(p,d,q)(P,D,Q)_s$}
+
+\begin{itemize}
+  \item Extensión estacional de ARIMA
+  \item Componentes estacionales
+  \item Periodicidad $s$
+  \item Casos típicos (mensual, trimestral)
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\subsection{Identificación y Diagnóstico}
+
+\begin{itemize}
+  \item Función de autocorrelación (ACF)
+  \item Función de autocorrelación parcial (PACF)
+  \item Correlogramas
+  \item Diagnóstico de residuos
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\subsection{Estimación y Selección de Modelos}
+
+\begin{itemize}
+  \item Función de log-verosimilitud
+  \item ECF (Empirical Characteristic Function)
+  \item Criterios de información:
+    \begin{itemize}
+      \item \textbf{AIC} (Akaike Information Criterion)
+      \item \textbf{BIC} (Bayesian Information Criterion)
+    \end{itemize}
+  \item Comparación de modelos
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\subsection{Series de Tiempo Financieras}
+
+\subsubsection{Características de series financieras}
+
+\begin{itemize}
+  \item Rendimientos
+  \item Volatilidad
+  \item Clustering de volatilidad
+  \item No normalidad
+  \item Leptocurtosis
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\subsection{Modelos de Volatilidad}
+
+\subsubsection{Modelo GARCH}
+
+\begin{itemize}
+  \item ARCH
+  \item GARCH$(p,q)$
+  \item Interpretación financiera
+  \item Persistencia de volatilidad
+\end{itemize}
+
+\subsubsection{Modelo EGARCH}
+
+\begin{itemize}
+  \item Efecto apalancamiento
+  \item Asimetría
+  \item Ventajas frente al GARCH clásico
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Objetivos del Repositorio}
+
+\begin{enumerate}
+  \item Entender la teoría detrás de los modelos de series de tiempo.
+  \item Aplicar modelos ARIMA/SARIMA a datos reales.
+  \item Modelar y analizar volatilidad financiera.
+  \item Comparar modelos usando criterios estadísticos.
+  \item Desarrollar intuición econométrica.
+\end{enumerate}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Tecnologías y Herramientas}
+
+\begin{itemize}
+  \item Python / R
+  \item NumPy / pandas
+  \item \texttt{statsmodels}
+  \item \texttt{arch}
+  \item Jupyter Notebooks
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Estructura Sugerida del Repositorio}
+
+\begin{table}[H]
+  \centering
+  \caption{Organización del repositorio}
+  \label{tab:estructura}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Carpeta / Archivo} & \textbf{Contenido} \\
+    \midrule
+    \texttt{notebooks/}        & Jupyter Notebooks de cada tema \\
+    \texttt{data/}             & Conjuntos de datos utilizados \\
+    \texttt{scripts/}          & Funciones y utilidades reutilizables \\
+    \texttt{reports/}          & Reportes y documentación en PDF/LaTeX \\
+    \texttt{README.md}         & Este documento \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\end{document}

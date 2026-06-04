@@ -1,0 +1,690 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Paquetes ──────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{lmodern}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+% ── Estilo para código Python ──────────────────────────────────────────────────
+\lstdefinestyle{python}{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{blue}\bfseries,
+  stringstyle=\color{orange},
+  commentstyle=\color{gray}\itshape,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  stepnumber=1,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!8},
+  showstringspaces=false,
+  tabsize=4
+}
+
+\lstset{style=python}
+
+% ── Portada ───────────────────────────────────────────────────────────────────
+\title{%
+  \LARGE \textbf{Series de Tiempo -- Notebook de Prácticas} \\[0.5em]
+  \large Finanzas Cuantitativas
+}
+\author{}
+\date{}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Carga de Datos}
+
+\begin{lstlisting}
+import pandas as pd
+
+ventas = pd.read_csv("california_housing_train.csv")
+ventas.head(51)
+\end{lstlisting}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Ajustar y Pronosticar con SARIMA (Modelo Airline)}
+
+\subsection{Ajuste del modelo SARIMA$(0,1,1)(0,1,1)_{12}$ a precios de AMZN}
+
+Se importa la clase \texttt{SARIMAX} de \texttt{statsmodels} y se define el orden
+no estacional $(0,1,1)$ y estacional $(0,1,1,12)$:
+
+\begin{lstlisting}
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+import yfinance as yf
+
+# Descargar datos de AMZN
+amzn = yf.download("AMZN", end="2026-01-01", progress=False)
+precios_amzn = amzn["Close"]
+
+# Establecer frecuencia de dias habiles
+precios_amzn = precios_amzn.asfreq('B')
+
+# Definir el orden del modelo SARIMA
+order = (0, 1, 1)
+seasonal_order = (0, 1, 1, 12)
+
+print(f"Ajustando SARIMA{order}{seasonal_order}...")
+
+sarima_model = SARIMAX(precios_amzn, order=order,
+                       seasonal_order=seasonal_order,
+                       enforce_stationarity=False,
+                       enforce_invertibility=False)
+
+sarima_results = sarima_model.fit()
+print(sarima_results.summary())
+\end{lstlisting}
+
+\subsection{Generación de pronósticos con intervalos de confianza}
+
+\begin{lstlisting}
+import matplotlib.pyplot as plt
+
+forecast_steps_sarima = 30
+
+forecast_sarima_output = sarima_results.get_forecast(
+    steps=forecast_steps_sarima)
+forecast_sarima_mean = forecast_sarima_output.predicted_mean
+conf_int_sarima = forecast_sarima_output.conf_int(alpha=0.05)
+
+plt.figure(figsize=(15, 7))
+plt.plot(precios_amzn.index, precios_amzn,
+         label='Serie Original (AMZN Close)', color='blue')
+plt.plot(forecast_sarima_mean.index, forecast_sarima_mean,
+         label='Pronostico SARIMA', color='red', linestyle='--')
+plt.fill_between(conf_int_sarima.index,
+                 conf_int_sarima.iloc[:, 0],
+                 conf_int_sarima.iloc[:, 1],
+                 color='red', alpha=0.2,
+                 label='95% Intervalo de Confianza')
+plt.title('Pronostico SARIMA(0,1,1)(0,1,1)12 de Precios AMZN')
+plt.xlabel('Fecha')
+plt.ylabel('Precio de Cierre')
+plt.legend()
+plt.grid(True)
+plt.show()
+\end{lstlisting}
+
+\subsection{Resumen: Metodología SARIMA}
+
+\paragraph{Orden no estacional $(p,d,q)=(0,1,1)$:}
+\begin{itemize}
+  \item $p=0$: Sin componente autorregresivo no estacional.
+  \item $d=1$: Se aplica una diferencia ordinaria para lograr estacionariedad.
+  \item $q=1$: Componente de media móvil de primer orden.
+\end{itemize}
+
+\paragraph{Orden estacional $(P,D,Q,s)=(0,1,1,12)$:}
+\begin{itemize}
+  \item $P=0$: Sin componente autorregresivo estacional.
+  \item $D=1$: Diferenciación estacional anual.
+  \item $Q=1$: Media móvil estacional de primer orden.
+  \item $s=12$: Periodicidad mensual (ciclo anual).
+\end{itemize}
+
+Los intervalos de confianza del 95\% se amplían conforme aumenta el horizonte de
+pronóstico, reflejando la creciente incertidumbre en predicciones de largo plazo.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Simulación de Procesos Estocásticos}
+
+\subsection{Ruido blanco}
+
+\begin{lstlisting}
+import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(42)
+white_noise = np.random.normal(loc=0, scale=1, size=200)
+
+time = np.arange(len(white_noise))
+
+plt.figure(figsize=(12, 6))
+plt.plot(time, white_noise)
+plt.title('Simulated Stationary White Noise Process')
+plt.xlabel('Time')
+plt.ylabel('Value')
+plt.grid(True)
+plt.show()
+\end{lstlisting}
+
+El ruido blanco es el ejemplo canónico de proceso estacionario: media y varianza
+constantes en el tiempo, y autocovarianza nula para todo rezago $k \neq 0$.
+
+\subsection{Proceso AR(1)}
+
+La fórmula matemática del proceso AR(1) es:
+\[
+  X_t = c + \phi X_{t-1} + \varepsilon_t
+\]
+donde $|\phi| < 1$ garantiza la estacionariedad.
+
+\begin{lstlisting}
+import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(42)
+white_noise = np.random.normal(loc=0, scale=1, size=200)
+
+phi = 0.7
+c = 0
+ar1_process = np.zeros_like(white_noise)
+ar1_process[0] = 0
+
+for t in range(1, len(white_noise)):
+    ar1_process[t] = c + phi * ar1_process[t-1] + white_noise[t]
+
+plt.figure(figsize=(12, 6))
+plt.plot(np.arange(len(ar1_process)), ar1_process)
+plt.title(r'Proceso AR(1) Simulado ($\phi=0.7$)')
+plt.xlabel('Tiempo')
+plt.ylabel('Valor')
+plt.grid(True)
+plt.show()
+\end{lstlisting}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Selección de Modelos ARIMA con AIC y BIC}
+
+\subsection{Ajuste de múltiples modelos ARIMA}
+
+\begin{lstlisting}
+import pandas as pd
+from statsmodels.tsa.arima.model import ARIMA
+
+model_orders = {
+    "AR(0)":     (0, 0, 0),
+    "AR(1)":     (1, 0, 0),
+    "MA(1)":     (0, 0, 1),
+    "ARMA(1,1)": (1, 0, 1)
+}
+
+model_results = []
+
+for model_name, order in model_orders.items():
+    try:
+        model   = ARIMA(ar1_process, order=order)
+        results = model.fit()
+        model_results.append({
+            "Model": model_name, "Order": order,
+            "AIC": results.aic, "BIC": results.bic
+        })
+        print(f"{model_name}: AIC={results.aic:.2f}, BIC={results.bic:.2f}")
+    except Exception as e:
+        print(f"No se pudo ajustar {model_name}: {e}")
+
+model_results_df = pd.DataFrame(model_results)
+display(model_results_df)
+\end{lstlisting}
+
+\subsection{Resultados y comparación}
+
+\begin{table}[H]
+  \centering
+  \caption{Criterios de información para modelos ARIMA ajustados al proceso AR(1)}
+  \label{tab:aic_bic}
+  \begin{tabular}{llrr}
+    \toprule
+    \textbf{Modelo} & \textbf{Orden} & \textbf{AIC} & \textbf{BIC} \\
+    \midrule
+    AR(0)     & (0, 0, 0) & 648.66 & 655.26 \\
+    \textbf{AR(1)} & \textbf{(1, 0, 0)} & \textbf{543.25} & \textbf{553.15} \\
+    MA(1)     & (0, 0, 1) & 571.39 & 581.28 \\
+    ARMA(1,1) & (1, 0, 1) & 545.25 & 558.44 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+El modelo \textbf{AR(1)} minimiza tanto el AIC como el BIC, identificando
+correctamente la estructura verdadera del proceso simulado.
+
+\subsection{Visualización de AIC y BIC}
+
+\begin{lstlisting}
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+model_results_melted = model_results_df.melt(
+    id_vars=['Model', 'Order'],
+    value_vars=['AIC', 'BIC'],
+    var_name='Metric', value_name='Value')
+
+plt.figure(figsize=(12, 7))
+sns.barplot(data=model_results_melted, x='Model', y='Value',
+            hue='Metric', palette={'AIC': 'skyblue', 'BIC': 'lightcoral'})
+plt.title('Comparacion de Modelos ARIMA por AIC y BIC')
+plt.xlabel('Modelo')
+plt.ylabel('Valor')
+plt.legend(title='Metrica')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+\end{lstlisting}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Proceso MA(1): Simulación e Identificación}
+
+\subsection{Fórmula matemática}
+
+El proceso MA(1) se define como:
+\[
+  Y_t = \mu + \varepsilon_t + \theta_1\,\varepsilon_{t-1}
+\]
+donde $\mu$ es la media constante y $\theta_1$ es el coeficiente de media móvil.
+
+\subsection{Simulación}
+
+\begin{lstlisting}
+import numpy as np
+
+np.random.seed(42)
+white_noise_ma = np.random.normal(loc=0, scale=1, size=200)
+
+mean    = 0
+theta_1 = 0.7
+ma1_process = np.zeros_like(white_noise_ma)
+ma1_process[0] = mean + white_noise_ma[0]
+
+for t in range(1, len(white_noise_ma)):
+    ma1_process[t] = mean + white_noise_ma[t] + theta_1 * white_noise_ma[t-1]
+\end{lstlisting}
+
+\subsection{Gráficas ACF y PACF}
+
+\begin{lstlisting}
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+
+plot_acf(ma1_process, lags=20, ax=axes[0],
+         title='ACF del Proceso MA(1)')
+axes[0].set_xlabel('Rezago')
+axes[0].set_ylabel('Autocorrelacion')
+axes[0].grid(True)
+
+plot_pacf(ma1_process, lags=20, ax=axes[1],
+          title='PACF del Proceso MA(1)')
+axes[1].set_xlabel('Rezago')
+axes[1].set_ylabel('Autocorrelacion Parcial')
+axes[1].grid(True)
+
+plt.tight_layout()
+plt.show()
+\end{lstlisting}
+
+\paragraph{Interpretación:}
+\begin{itemize}
+  \item \textbf{ACF}: presenta un pico significativo en el rezago 1 y luego
+        se trunca bruscamente, identificando $q=1$.
+  \item \textbf{PACF}: muestra un decaimiento gradual, consistente con un
+        proceso MA.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Anotaciones en ACF y PACF para Identificación de Órdenes}
+
+\begin{lstlisting}
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+import matplotlib.pyplot as plt
+
+# ACF del MA(1): destacar q=1
+fig, ax = plt.subplots(figsize=(10, 6))
+plot_acf(ma1_process, lags=10, ax=ax,
+         title='ACF del Proceso MA(1) (Destacando orden q)')
+ax.axvline(x=1, color='red', linestyle='--', linewidth=2,
+           label='Rezago significativo (q=1)')
+ax.set_xlabel('Rezago')
+ax.set_ylabel('Autocorrelacion')
+ax.legend()
+ax.grid(True)
+plt.tight_layout()
+plt.show()
+
+# PACF del AR(1): destacar p=1
+fig, ax = plt.subplots(figsize=(10, 6))
+plot_pacf(ar1_process, lags=10, ax=ax,
+          title='PACF del Proceso AR(1) (Destacando orden p)')
+ax.axvline(x=1, color='red', linestyle='--', linewidth=2,
+           label='Rezago significativo (p=1)')
+ax.set_xlabel('Rezago')
+ax.set_ylabel('Autocorrelacion Parcial')
+ax.legend()
+ax.grid(True)
+plt.tight_layout()
+plt.show()
+\end{lstlisting}
+
+\paragraph{Reglas de identificación:}
+\begin{itemize}
+  \item Para identificar $q$ (orden MA): buscar el corte abrupto en la
+        \textbf{ACF}.
+  \item Para identificar $p$ (orden AR): buscar el corte abrupto en la
+        \textbf{PACF}.
+  \item Si ambas funciones decaen gradualmente, se sugiere un proceso
+        \textbf{ARMA} mixto.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Pronóstico del Proceso AR(1) con Intervalos de Confianza}
+
+\begin{lstlisting}
+from statsmodels.tsa.arima.model import ARIMA
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Ajustar ARIMA(1,0,0)
+ar_model         = ARIMA(ar1_process, order=(1, 0, 0))
+ar_model_results = ar_model.fit()
+
+forecast_steps  = 20
+forecast_output = ar_model_results.get_forecast(steps=forecast_steps)
+forecast_mean   = forecast_output.predicted_mean
+conf_int        = forecast_output.conf_int(alpha=0.05)
+
+time_original = np.arange(len(ar1_process))
+time_forecast = np.arange(len(ar1_process),
+                           len(ar1_process) + forecast_steps)
+
+plt.figure(figsize=(14, 7))
+plt.plot(time_original, ar1_process,
+         label='Proceso AR(1) Original', color='blue')
+plt.plot(time_forecast, forecast_mean,
+         label='Valores Pronosticados', color='red', linestyle='--')
+plt.fill_between(time_forecast, conf_int[:, 0], conf_int[:, 1],
+                 color='red', alpha=0.2,
+                 label='95% Intervalo de Confianza')
+plt.title('Pronostico ARIMA del Proceso AR(1)')
+plt.xlabel('Tiempo')
+plt.ylabel('Valor')
+plt.legend()
+plt.grid(True)
+plt.show()
+\end{lstlisting}
+
+Los valores pronosticados muestran convergencia a la media de largo plazo
+($c=0$), comportamiento esperado de un proceso AR(1) estacionario. Los
+intervalos de confianza se ensanchan progresivamente con el horizonte.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Análisis de Datos Reales: Precios de Cierre de AMZN}
+
+\subsection{Preparación de datos}
+
+\begin{lstlisting}
+import pandas as pd
+import yfinance as yf
+
+amzn = yf.download("AMZN", end="2026-01-01")
+precios_amzn = amzn["Close"]
+
+# Verificar tipo de indice
+is_datetime = pd.api.types.is_datetime64_any_dtype(precios_amzn.index)
+print(f"Indice datetime: {is_datetime}")
+
+# Verificar y tratar valores faltantes
+missing_total = precios_amzn.isnull().sum().item()
+if missing_total > 0:
+    precios_amzn = precios_amzn.ffill()
+
+# Asignar frecuencia
+precios_amzn = precios_amzn.asfreq('B')
+print(precios_amzn.head(5))
+\end{lstlisting}
+
+\subsection{Selección de modelos ARIMA en datos reales}
+
+\begin{lstlisting}
+from statsmodels.tsa.arima.model import ARIMA
+import pandas as pd
+
+model_orders_real = {
+    "ARIMA(0,1,0)": (0, 1, 0),
+    "ARIMA(1,1,0)": (1, 1, 0),
+    "ARIMA(0,1,1)": (0, 1, 1),
+    "ARIMA(1,1,1)": (1, 1, 1)
+}
+
+model_results_real = []
+
+for model_name, order in model_orders_real.items():
+    try:
+        model   = ARIMA(precios_amzn, order=order,
+                        enforce_stationarity=False,
+                        enforce_invertibility=False)
+        results = model.fit()
+        model_results_real.append({
+            "Model": model_name, "Order": order,
+            "AIC": results.aic, "BIC": results.bic
+        })
+        print(f"{model_name}: AIC={results.aic:.2f}, BIC={results.bic:.2f}")
+    except Exception as e:
+        print(f"Error en {model_name}: {e}")
+
+model_results_real_df = pd.DataFrame(model_results_real)
+display(model_results_real_df)
+\end{lstlisting}
+
+\begin{table}[H]
+  \centering
+  \caption{Criterios de información para modelos ARIMA ajustados a precios AMZN}
+  \label{tab:aic_bic_real}
+  \begin{tabular}{llrr}
+    \toprule
+    \textbf{Modelo} & \textbf{Orden} & \textbf{AIC} & \textbf{BIC} \\
+    \midrule
+    ARIMA(0,1,0)          & (0, 1, 0) & 95.41 & 96.46 \\
+    ARIMA(1,1,0)          & (1, 1, 0) & 97.00 & 99.09 \\
+    \textbf{ARIMA(0,1,1)} & \textbf{(0, 1, 1)} & \textbf{92.61} & \textbf{94.61} \\
+    ARIMA(1,1,1)          & (1, 1, 1) & 94.61 & 97.60 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+El modelo \textbf{ARIMA$(0,1,1)$} presenta los menores valores de AIC y BIC.
+
+\subsection{Pronóstico con Meta Prophet}
+
+\begin{lstlisting}
+import sys
+# Instalar si es necesario:
+# !{sys.executable} -m pip install prophet
+
+import pandas as pd
+from prophet import Prophet
+
+# Preparar datos para Prophet
+prophet_df = precios_amzn.reset_index()
+prophet_df.columns = ['ds', 'y']
+prophet_df['ds'] = pd.to_datetime(prophet_df['ds'])
+
+# Ajustar modelo Prophet con intervalo de 95%
+model = Prophet(interval_width=0.95)
+model.fit(prophet_df)
+
+# Crear dataframe futuro (30 dias habiles)
+future   = model.make_future_dataframe(periods=30, freq='B')
+forecast = model.predict(future)
+
+print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(10))
+\end{lstlisting}
+
+\begin{lstlisting}
+import matplotlib.pyplot as plt
+
+# Grafico de pronostico
+fig1 = model.plot(forecast)
+plt.title('Pronostico Prophet de Precios AMZN')
+plt.xlabel('Fecha')
+plt.ylabel('Precio de Cierre')
+plt.grid(True)
+plt.show()
+
+# Componentes del pronostico (tendencia, estacionalidad)
+fig2 = model.plot_components(forecast)
+plt.show()
+\end{lstlisting}
+
+\paragraph{Interpretación:}
+\begin{itemize}
+  \item \texttt{yhat}: predicción puntual del precio de cierre.
+  \item \texttt{yhat\_lower}/\texttt{yhat\_upper}: límites inferior y superior
+        del intervalo de confianza al 95\%.
+  \item Los intervalos se amplían con el horizonte de pronóstico, reflejando
+        mayor incertidumbre en el largo plazo.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Preguntas de Aplicación}
+
+\subsection{Pregunta 5 -- Serie S\&P 500 (GSPC)}
+
+\begin{lstlisting}
+import yfinance as yf
+import pandas as pd
+
+ticker = "^GSPC"
+data   = yf.download(ticker, start="2014-01-01", end="2026-01-01")
+
+# Serie mensual (media del mes)
+ts = data['Close'].resample('MS').mean()
+ts = ts.dropna()
+\end{lstlisting}
+
+\paragraph{b) Transformaciones sugeridas:}
+\begin{itemize}
+  \item \textbf{Frecuencia}: mensual (\texttt{MS}).
+  \item \textbf{Valores faltantes}: interpolación lineal o eliminación de
+        periodos vacíos.
+  \item \textbf{Logaritmos}: aplicar $\ln(X_t)$ si la serie exhibe crecimiento
+        exponencial.
+  \item \textbf{Diferenciación}: identificar $d$ y $D$ mediante la prueba ADF.
+\end{itemize}
+
+\paragraph{c) Valores plausibles para $d$, $D$ y $s$:}
+\begin{itemize}
+  \item $s = 12$: ciclo estacional anual (datos mensuales).
+  \item $d = 1$: necesaria para eliminar la tendencia.
+  \item $D = 0$ o $1$: a determinar tras analizar la estacionalidad residual.
+\end{itemize}
+
+\paragraph{d) Modelo candidato:}
+Dado el decaimiento de la ACF y el corte en la PACF,
+SARIMA$(1,1,0)\times(0,0,0)_{12}$ o SARIMA$(1,1,1)$.
+
+\paragraph{e) Validación:}
+\begin{itemize}
+  \item Análisis de residuos: test de Ljung-Box.
+  \item Backtesting: RMSE o MAE en datos fuera de muestra.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\subsection{Pregunta 6 -- Serie de Ventas Mensuales}
+
+\begin{lstlisting}
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('ventas_empresa.csv',
+                 parse_dates=['Fecha'], index_col='Fecha')
+ts = df['Ventas'].resample('MS').sum()
+
+plt.figure(figsize=(10, 4))
+ts.plot(title='Serie Mensual de Ventas')
+plt.show()
+\end{lstlisting}
+
+\paragraph{b) Características observadas:}
+\begin{itemize}
+  \item \textbf{Tendencia}: creciente y persistente.
+  \item \textbf{Estacionalidad}: fuerte y estable, con ciclos anuales.
+  \item \textbf{No estacionariedad}: en media (tendencia) y eventualmente
+        en varianza.
+\end{itemize}
+
+\paragraph{c) Diferenciación propuesta:}
+$s=12$, $d=1$, $D=1$.
+
+\paragraph{d) Modelo candidato:}
+SARIMA$(1,1,0)\times(0,1,1)_{12}$.
+
+\paragraph{e) Métricas de evaluación:}
+\begin{itemize}
+  \item \textbf{MAPE}: error porcentual medio absoluto; útil para interpretación
+        gerencial.
+  \item \textbf{RMSE}: penaliza errores grandes; recomendable cuando se desea
+        evitar pronósticos con alta desviación.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\subsection{Pregunta 7 -- ARIMA vs.\ ARIMAX vs.\ SARIMA vs.\ SARIMAX}
+
+\paragraph{a) Diferencias:}
+\begin{itemize}
+  \item \textbf{ARIMA}: modelo univariado para series no estacionales.
+  \item \textbf{ARIMAX}: ARIMA con variables exógenas.
+  \item \textbf{SARIMA}: ARIMA con componentes estacionales.
+  \item \textbf{SARIMAX}: versión más completa; incorpora estacionalidad y
+        variables exógenas.
+\end{itemize}
+
+\paragraph{b) Ecuación general del SARIMAX:}
+\[
+  \Phi_P(B^s)\,\phi_p(B)\,(1-B)^d\,(1-B^s)^D X_t
+  = \beta^\top Z_t + \Theta_Q(B^s)\,\theta_q(B)\,\varepsilon_t
+\]
+donde $\beta^\top Z_t$ es el componente de regresión exógena.
+
+\paragraph{c) Justificación de variables exógenas:}
+Se incluye una variable exógena (p.\,ej.\ gasto en publicidad o tipo de cambio)
+si existe causalidad teórica, mejora de precisión observada y capacidad de
+pronóstico de dicha variable.
+
+\paragraph{d) Modelo SARIMAX candidato:}
+SARIMAX$(1,1,1)\times(0,1,1)_{12}$.
+
+\begin{lstlisting}
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+# 'ventas' es la serie y 'exog_data' es un DataFrame con variables externas
+model = SARIMAX(ventas,
+                order=(1, 1, 1),
+                seasonal_order=(0, 1, 1, 12),
+                exog=exog_data)
+
+results = model.fit()
+print(results.summary())
+\end{lstlisting}
+
+\paragraph{f) Ventajas y limitaciones del SARIMAX frente al SARIMA:}
+\begin{itemize}
+  \item \textbf{Ventajas}: mayor capacidad explicativa; reduce el error de
+        pronóstico cuando la variable exógena es relevante.
+  \item \textbf{Limitaciones}: requiere pronosticar la variable exógena; mayor
+        riesgo de sobreajuste si se incluyen variables sin relación causal genuina.
+\end{itemize}
+
+\end{document}

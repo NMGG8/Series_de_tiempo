@@ -1,0 +1,559 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Paquetes ──────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{lmodern}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{
+  colorlinks = true,
+  linkcolor  = blue,
+  urlcolor   = blue,
+  citecolor  = blue
+}
+
+% ── Portada ───────────────────────────────────────────────────────────────────
+\title{%
+  \large UNIVERSIDAD PANAMERICANA \\
+  \normalsize Facultad de Ciencias Econ\'omicas y Empresariales \\
+  \normalsize Finanzas Cuantitativas \\[1.5em]
+  \LARGE \textbf{Modelos de Series de Tiempo: (S)ARIMA y SARIMAX} \\[0.5em]
+  \large An\'alisis, Identificaci\'on, Estimaci\'on y Diagn\'ostico
+         de Modelos Estacionales
+}
+\author{Nina Guevara \\ \small Finanzas Cuantitativas \\ \small Universidad Panamericana}
+\date{16 de abril de 2026}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Introducción a las Series de Tiempo}
+
+Una serie de tiempo es una sucesión de observaciones de una variable aleatoria
+indexadas en el tiempo:
+\[
+  \{Y_t\}_{t=1}^{T}, \quad t = 1, 2, \ldots, T
+\]
+
+El objetivo central del análisis de series de tiempo en finanzas cuantitativas
+es doble: entender la estructura dinámica del proceso generador de datos y
+realizar pronósticos fuera de muestra. Los modelos de la familia ARIMA
+\cite{BoxJenkins1976} constituyen el estándar de referencia para series
+univariadas, mientras que su extensión estacional, SARIMA, permite capturar
+ciclos periódicos presentes en datos financieros y económicos como ventas
+mensuales, rendimientos trimestrales o indicadores macroeconómicos.
+
+\paragraph{Conceptos previos fundamentales.}
+\begin{itemize}
+  \item \textbf{Estacionariedad:} una serie $\{Y_t\}$ es (débilmente)
+        estacionaria si $\mathbb{E}[Y_t] = \mu$, $\mathrm{Var}(Y_t)=\sigma^2<\infty$
+        y $\mathrm{Cov}(Y_t, Y_{t-k}) = \gamma_k$ depende sólo de $k$, no de $t$.
+  \item \textbf{Ruido blanco:} proceso $\{\varepsilon_t\}$ con
+        $\mathbb{E}[\varepsilon_t]=0$, $\mathrm{Var}(\varepsilon_t)=\sigma^2$ y
+        $\mathrm{Cov}(\varepsilon_t,\varepsilon_s)=0\ \forall\, t\neq s$.
+  \item \textbf{Proceso integrado $I(d)$:} requiere $d$ diferenciaciones
+        ordinarias para volverse estacionario.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{El Modelo ARIMA}
+
+\subsection{Componentes básicos}
+
+\subsubsection{Proceso Autoregresivo AR(\textit{p})}
+
+Un proceso autoregresivo de orden $p$ modela $Y_t$ como combinación lineal de
+sus $p$ valores pasados más un error:
+\[
+  Y_t = c + \phi_1 Y_{t-1} + \phi_2 Y_{t-2} + \cdots + \phi_p Y_{t-p} + \varepsilon_t
+\]
+
+Usando el operador de rezago $L$ (donde $L^k Y_t = Y_{t-k}$), se escribe
+compactamente:
+\[
+  \Phi(L)\, Y_t = c + \varepsilon_t, \qquad
+  \Phi(L) = 1 - \phi_1 L - \phi_2 L^2 - \cdots - \phi_p L^p
+\]
+
+La condición de estacionariedad exige que todas las raíces de $\Phi(z)=0$
+estén fuera del círculo unitario.
+
+\subsubsection{Proceso de Media Móvil MA(\textit{q})}
+
+\[
+  Y_t = \mu + \varepsilon_t + \theta_1\varepsilon_{t-1}
+        + \theta_2\varepsilon_{t-2} + \cdots + \theta_q\varepsilon_{t-q}
+\]
+
+Todo proceso MA($q$) es estacionario. La condición de invertibilidad requiere
+que las raíces de $\Theta(z)=0$ estén fuera del círculo unitario.
+
+\subsubsection{Proceso ARMA(\textit{p,q})}
+
+Combina ambas estructuras:
+\[
+  \Phi(L)\, Y_t = c + \Theta(L)\,\varepsilon_t
+\]
+
+\subsubsection{Proceso ARIMA(\textit{p,d,q})}
+
+Cuando la serie no es estacionaria se aplica diferenciación ordinaria:
+\[
+  \nabla^d Y_t = (1-L)^d Y_t
+\]
+
+El modelo ARIMA($p,d,q$) aplica ARMA($p,q$) sobre $\nabla^d Y_t$:
+\[
+  \Phi(L)\,(1-L)^d\,Y_t = c + \Theta(L)\,\varepsilon_t
+\]
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{El Modelo SARIMA}
+
+\subsection{Notación y estructura general}
+
+La presencia de estacionalidad---variaciones que se repiten con período $s$---exige
+incorporar operadores estacionales. La notación completa es:
+\[
+  \mathrm{SARIMA}(p,d,q)\times(P,D,Q)_s
+\]
+
+donde la ecuación del modelo es:
+\[
+  \Phi_p(L)\,\tilde{\Phi}_P(L^s)\,\nabla^d\nabla_s^D\,Y_t
+  = c + \Theta_q(L)\,\tilde{\Theta}_Q(L^s)\,\varepsilon_t
+\]
+
+con los operadores:
+\[
+  \nabla_s^D Y_t = (1-L^s)^D Y_t, \qquad
+  \tilde{\Phi}_P(L^s) = 1 - \Phi_1 L^s - \cdots - \Phi_P L^{sP}
+\]
+
+\subsection{Descripción de cada parámetro}
+
+La Tabla~\ref{tab:params} resume los siete parámetros del modelo SARIMA.
+
+\begin{table}[H]
+  \centering
+  \caption{Parámetros del modelo SARIMA$(p,d,q)(P,D,Q)_s$}
+  \label{tab:params}
+  \begin{tabular}{ccp{6.5cm}c}
+    \toprule
+    \textbf{Parámetro} & \textbf{Tipo} & \textbf{Descripción} & \textbf{Identificación} \\
+    \midrule
+    $p$ & No estacional & Orden autoregresivo ordinario. Número de rezagos de $Y_t$ que se incluyen en la ecuación. & PACF \\
+    $d$ & No estacional & Grado de integración ordinario. Número de diferencias $(1-L)^d$ para lograr estacionariedad. & Prueba ADF/KPSS \\
+    $q$ & No estacional & Orden de media móvil ordinario. Número de errores pasados $\varepsilon_{t-k}$ en el modelo. & ACF \\
+    $P$ & Estacional & Orden autoregresivo estacional. Actúa en rezagos múltiplos de $s$: $s, 2s, 3s, \ldots$ & PACF estacional \\
+    $D$ & Estacional & Diferenciación estacional. Aplica $(1-L^s)^D$ para eliminar tendencia periódica. & Prueba CH \\
+    $Q$ & Estacional & Orden de media móvil estacional. Errores en rezagos $s, 2s, \ldots$ & ACF estacional \\
+    $s$ & Periodo & Longitud del ciclo estacional (meses: 12; trimestres: 4; semanas: 52; días: 7). & Inspección \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Herramientas de identificación: ACF y PACF}
+
+\paragraph{Función de Autocorrelación (ACF).}
+
+La ACF al rezago $k$ se define como:
+\[
+  \rho_k = \frac{\mathrm{Cov}(Y_t, Y_{t-k})}{\mathrm{Var}(Y_t)} = \frac{\gamma_k}{\gamma_0}
+\]
+
+Identifica el orden $q$ de la componente MA: la ACF se trunca en el rezago $q$
+para un proceso MA puro. Limitación crucial: si se aplica la ACF a un proceso AR
+puro, ésta decae geométricamente y no permite identificar el orden $p$.
+
+\paragraph{Función de Autocorrelación Parcial (PACF).}
+
+La PACF al rezago $k$ mide la correlación entre $Y_t$ e $Y_{t-k}$ condicional
+a los rezagos intermedios $\{Y_{t-1},\ldots,Y_{t-k+1}\}$:
+\[
+  \alpha_k = \mathrm{Corr}(Y_t, Y_{t-k} \mid Y_{t-1},\ldots,Y_{t-k+1})
+\]
+
+Identifica el orden $p$ de la componente AR: la PACF se trunca en el rezago $p$
+para un proceso AR puro.
+
+\begin{table}[H]
+  \centering
+  \caption{Reglas de identificación mediante ACF y PACF}
+  \label{tab:acfpacf}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Proceso} & \textbf{ACF} & \textbf{PACF} \\
+    \midrule
+    AR($p$)      & Decae geométricamente        & Se trunca en rezago $p$ \\
+    MA($q$)      & Se trunca en rezago $q$       & Decae geométricamente \\
+    ARMA($p,q$)  & Decae (mixto)                & Decae (mixto) \\
+    SAR($P$)$_s$ & Picos en $s,2s,\ldots$ decaen & Pico significativo en $s$ \\
+    SMA($Q$)$_s$ & Pico significativo en $s$     & Picos en $s,2s,\ldots$ decaen \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{El Principio de Parsimonia}
+
+El principio de parsimonia (principio de Ockham aplicado a modelos estadísticos)
+establece que, entre dos modelos con ajuste equivalente, se prefiere el de menor
+complejidad. En SARIMA esto se formaliza como:
+\[
+  p + d + q + P + D + Q \leq C
+\]
+donde $C$ es una cota prefijada (usualmente $C \leq 6$). El procedimiento
+consiste en variar sistemáticamente cada grado y evaluar el modelo resultante
+con criterios de información y bondad de ajuste.
+
+\subsection{Criterios de selección de modelos}
+
+\begin{table}[H]
+  \centering
+  \caption{Criterios de selección y diagnóstico de modelos SARIMA}
+  \label{tab:criterios}
+  \begin{tabular}{llp{5cm}l}
+    \toprule
+    \textbf{Criterio} & \textbf{Fórmula} & \textbf{Interpretación} & \textbf{Decisión} \\
+    \midrule
+    AIC & $-2\hat{\ell} + 2k$ & Penaliza el número de parámetros $k$. Menos restrictivo que BIC. & Minimizar \\
+    BIC & $-2\hat{\ell} + k\ln(n)$ & Penaliza más fuerte: multiplica por $\ln(n)$. Favorece modelos parsimoniosos. & Minimizar \\
+    SSE & $\sum_{t=1}^{T}\hat{\varepsilon}_t^2$ & Suma de errores al cuadrado. Mide el ajuste en muestra. & Minimizar \\
+    Log-verosimilitud & $\hat{\ell} = \log L(\hat{\theta})$ & Qué tan probable es observar los datos dado el modelo estimado. & Maximizar \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\noindent\textbf{Nota importante:} Cuando AIC y BIC difieren en la selección del
+modelo, se recomienda utilizar BIC en muestras grandes ($n > 100$), ya que su
+penalización más severa reduce el riesgo de sobreajuste. En muestras pequeñas,
+AIC tiende a tener mejor desempeño predictivo fuera de muestra.
+
+\subsection{Test de Ljung-Box}
+
+El test de Ljung-Box verifica que los residuos del modelo estimado sean ruido
+blanco, es decir, que no quede estructura de autocorrelación sin modelar:
+\[
+  Q_{LB} = n(n+2)\sum_{k=1}^{h}\frac{\hat{\rho}_k^2}{n-k}
+  \;\xrightarrow{H_0}\; \chi^2(h)
+\]
+
+\begin{table}[H]
+  \centering
+  \caption{Decisión con el Test de Ljung-Box}
+  \label{tab:ljungbox}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Hipótesis} & \textbf{Condición} & \textbf{Conclusión} \\
+    \midrule
+    $H_0$: no hay autocorrelación & $p$-valor $> 0.05$ & Residuos son ruido blanco \checkmark \\
+    $H_1$: hay autocorrelación   & $p$-valor $\leq 0.05$ & Modelo mal especificado, revisar órdenes \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Base de Datos: Pasajeros Aéreos Internacionales}
+
+\subsection{Descripción del conjunto de datos}
+
+La serie clásica de Box y Jenkins \cite{BoxJenkins1976} registra el número
+mensual de pasajeros aéreos internacionales (en miles) entre enero de 1949 y
+diciembre de 1960. Con $n=144$ observaciones, exhibe dos características que la
+hacen ideal para ilustrar SARIMA:
+
+\begin{enumerate}
+  \item \textbf{Tendencia creciente:} la media aumenta con el tiempo
+        $\Rightarrow$ no estacionaria, requiere $d=1$.
+  \item \textbf{Heterocedasticidad estacional:} la amplitud de las oscilaciones
+        crece con el nivel $\Rightarrow$ se aplica transformación logarítmica
+        antes de diferenciar.
+\end{enumerate}
+
+\subsection{Datos mensuales 1949--1950}
+
+\begin{table}[H]
+  \centering
+  \caption{Serie de pasajeros aéreos internacionales -- primeros 24 meses}
+  \label{tab:pasajeros}
+  \begin{tabular}{llrr|llrr}
+    \toprule
+    \textbf{Fecha} & \textbf{Mes} & \textbf{Pasaj.} & $\ln(\text{Pas.})$
+    & \textbf{Fecha} & \textbf{Mes} & \textbf{Pasaj.} & $\ln(\text{Pas.})$ \\
+    \midrule
+    1949-01 & Ene & 112 & 4.718 & 1950-01 & Ene & 115 & 4.745 \\
+    1949-02 & Feb & 118 & 4.771 & 1950-02 & Feb & 126 & 4.836 \\
+    1949-03 & Mar & 132 & 4.883 & 1950-03 & Mar & 141 & 4.949 \\
+    1949-04 & Abr & 129 & 4.860 & 1950-04 & Abr & 135 & 4.905 \\
+    1949-05 & May & 121 & 4.796 & 1950-05 & May & 125 & 4.828 \\
+    1949-06 & Jun & 135 & 4.905 & 1950-06 & Jun & 149 & 5.003 \\
+    1949-07 & Jul & 148 & 4.997 & 1950-07 & Jul & 170 & 5.136 \\
+    1949-08 & Ago & 148 & 4.997 & 1950-08 & Ago & 170 & 5.136 \\
+    1949-09 & Sep & 136 & 4.913 & 1950-09 & Sep & 158 & 5.063 \\
+    1949-10 & Oct & 119 & 4.779 & 1950-10 & Oct & 133 & 4.890 \\
+    1949-11 & Nov & 104 & 4.644 & 1950-11 & Nov & 114 & 4.736 \\
+    1949-12 & Dic & 118 & 4.771 & 1950-12 & Dic & 140 & 4.942 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Representación gráfica de la serie}
+
+% Si dispones de las figuras, descomenta y ajusta las rutas:
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=0.85\textwidth]{fig_pasajeros_original.pdf}
+%   \caption{Serie original con tendencia creciente y estacionalidad multiplicativa.
+%            Se observa que la amplitud de las oscilaciones aumenta con el nivel de
+%            la serie, indicando heterocedasticidad estacional.}
+%   \label{fig:serie_original}
+% \end{figure}
+%
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=0.85\textwidth]{fig_pasajeros_log.pdf}
+%   \caption{Serie transformada $\ln(Y_t)$. La transformación logarítmica estabiliza
+%            la varianza, convirtiendo una estacionalidad multiplicativa en aditiva.
+%            La tendencia lineal persiste: se requiere $d=1$.}
+%   \label{fig:serie_log}
+% \end{figure}
+
+\subsection{Modelo identificado: SARIMA$(0,1,1)(0,1,1)_{12}$}
+
+Conocido como el \emph{modelo de aerolíneas} de Box-Jenkins, el modelo para
+$W_t = \ln(Y_t)$ es:
+\[
+  (1-L)(1-L^{12})\,W_t = (1+\theta_1 L)(1+\Theta_1 L^{12})\,\varepsilon_t
+\]
+
+\begin{table}[H]
+  \centering
+  \caption{Estimación del modelo SARIMA$(0,1,1)(0,1,1)_{12}$ -- Serie de pasajeros}
+  \label{tab:estimacion}
+  \begin{tabular}{lrrrr}
+    \toprule
+    \textbf{Parámetro} & \textbf{Estimado} & \textbf{Error est.} & \textbf{$z$-valor} & \textbf{$p$-valor} \\
+    \midrule
+    $\theta_1$ (MA no estacional) & $-0.4018$ & $0.0896$ & $-4.48$ & $<0.001$ \\
+    $\Theta_1$ (MA estacional)    & $-0.5569$ & $0.0731$ & $-7.62$ & $<0.001$ \\
+    \midrule
+    \multicolumn{5}{l}{AIC $= -244.97$ \quad BIC $= -239.25$ \quad
+                        $\hat{\sigma}^2 = 0.001348$ \quad Ljung-Box $p > 0.05$} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{El Modelo SARIMAX}
+
+\subsection{Definición y motivación}
+
+El modelo SARIMAX (\textit{Seasonal ARIMA with eXogenous variables}) extiende
+SARIMA incorporando un vector de variables explicativas $x_t$ que aportan
+información causal o predictiva:
+\[
+  \Phi_p(L)\,\tilde{\Phi}_P(L^s)\,\nabla^d\nabla_s^D\,Y_t
+  = x_t^\top\beta + \Theta_q(L)\,\tilde{\Theta}_Q(L^s)\,\varepsilon_t
+\]
+
+Las variables exógenas $x_t$ no son modeladas por el sistema (son
+determinísticas o provienen de otro modelo), pero condicionan el nivel de $Y_t$
+más allá de su propia dinámica estacional.
+
+\subsection{Base de datos: Ventas de helados con variables exógenas}
+
+\begin{table}[H]
+  \centering
+  \caption{Base de datos para modelo SARIMAX -- Ventas de helados (2020--2021)}
+  \label{tab:helados}
+  \small
+  \begin{tabular}{llrrrrr}
+    \toprule
+    \textbf{Fecha} & \textbf{Mes} & \textbf{Ventas $Y_t$} & \textbf{Temp.\ ($X_{1t}$, °C)} & \textbf{Precio ($X_{2t}$, \$)} & $\ln(Y_t)$ & \textbf{Festivo ($X_{3t}$)} \\
+    \midrule
+    2020-01 & Enero      &   850 & 12 & 25 & 6.745 & 0 \\
+    2020-02 & Febrero    &   900 & 14 & 25 & 6.802 & 0 \\
+    2020-03 & Marzo      & 1\,200 & 19 & 26 & 7.091 & 0 \\
+    2020-04 & Abril      & 1\,500 & 24 & 26 & 7.313 & 1 \\
+    2020-05 & Mayo       & 2\,100 & 30 & 27 & 7.650 & 0 \\
+    2020-06 & Junio      & 2\,800 & 35 & 27 & 7.937 & 0 \\
+    2020-07 & Julio      & 3\,200 & 38 & 28 & 8.071 & 1 \\
+    2020-08 & Agosto     & 3\,100 & 37 & 28 & 8.039 & 0 \\
+    2020-09 & Septiembre & 2\,400 & 32 & 27 & 7.783 & 0 \\
+    2020-10 & Octubre    & 1\,600 & 25 & 26 & 7.378 & 0 \\
+    2020-11 & Noviembre  & 1\,000 & 16 & 25 & 6.908 & 0 \\
+    2020-12 & Diciembre  &   870 & 13 & 25 & 6.768 & 1 \\
+    2021-01 & Enero      &   920 & 13 & 25 & 6.824 & 0 \\
+    2021-02 & Febrero    &   980 & 15 & 26 & 6.888 & 0 \\
+    2021-03 & Marzo      & 1\,350 & 21 & 26 & 7.208 & 0 \\
+    2021-04 & Abril      & 1\,680 & 26 & 27 & 7.427 & 1 \\
+    2021-05 & Mayo       & 2\,250 & 31 & 27 & 7.719 & 0 \\
+    2021-06 & Junio      & 2\,950 & 36 & 28 & 7.990 & 0 \\
+    2021-07 & Julio      & 3\,400 & 39 & 29 & 8.131 & 1 \\
+    2021-08 & Agosto     & 3\,280 & 38 & 28 & 8.096 & 0 \\
+    2021-09 & Septiembre & 2\,600 & 33 & 27 & 7.863 & 0 \\
+    2021-10 & Octubre    & 1\,750 & 26 & 26 & 7.467 & 0 \\
+    2021-11 & Noviembre  & 1\,100 & 17 & 25 & 7.003 & 0 \\
+    2021-12 & Diciembre  &   950 & 14 & 25 & 6.856 & 1 \\
+    \bottomrule
+    \multicolumn{7}{l}{\small $Y_t$: ventas en unidades. $X_{3t}$: indicador binario de mes con días festivos significativos.}
+  \end{tabular}
+\end{table}
+
+\subsection{Figura: Estacionalidad de ventas de helados}
+
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=0.85\textwidth]{fig_helados.pdf}
+%   \caption{Las ventas de helados exhiben un patrón estacional claro ($s=12$)
+%            fuertemente correlacionado con la temperatura. Este es el argumento
+%            para incluir la temperatura como variable exógena en el modelo
+%            SARIMAX$(1,1,1)(1,1,0)_{12}$.}
+%   \label{fig:helados}
+% \end{figure}
+
+\subsection{¿Cuándo usar SARIMAX vs.\ SARIMA?}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparación SARIMA vs.\ SARIMAX}
+  \label{tab:comparacion}
+  \begin{tabular}{lp{5cm}p{5cm}}
+    \toprule
+    \textbf{Aspecto} & \textbf{SARIMA} & \textbf{SARIMAX} \\
+    \midrule
+    Variables   & Sólo $Y_t$ (univariado) & $Y_t$ + regresores $x_t$ \\
+    Causalidad  & No requiere teoría causal & Requiere justificación económica/financiera \\
+    Pronóstico  & Sólo necesita historia de $Y$ & Necesita pronóstico de $x_{t+h}$ también \\
+    Ventaja     & Simple, robusto & Menor varianza del error si $x_t$ es relevante \\
+    Uso típico  & Tasas de interés, índices & Ventas con precios, demanda con clima \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Proceso de Modelación: Metodología Box-Jenkins}
+
+La metodología de Box y Jenkins para identificar, estimar y validar un modelo
+SARIMA sigue cuatro etapas:
+
+\begin{enumerate}
+  \item \textbf{Identificación.}
+        Graficar serie, ACF, PACF. Aplicar pruebas de raíz unitaria (ADF, KPSS).
+        Determinar $d$, $D$, $s$. Proponer órdenes $p$, $q$, $P$, $Q$ candidatos.
+
+  \item \textbf{Estimación.}
+        Estimar parámetros por máxima verosimilitud condicional o exacta.
+        Calcular AIC, BIC, log-verosimilitud para cada modelo candidato.
+
+  \item \textbf{Diagnóstico.}
+        Analizar residuos: gráfica, ACF/PACF de residuos, Test Ljung-Box,
+        normalidad (Jarque-Bera), homocedasticidad (ARCH-LM).
+        Si el diagnóstico detecta residuos con estructura, se regresa a la etapa
+        de identificación.
+
+  \item \textbf{Pronóstico.}
+        Generar predicciones $\hat{Y}_{T+h}$ con intervalos de confianza.
+        Evaluar desempeño fuera de muestra: RMSE, MAE, MAPE.
+\end{enumerate}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Resumen de Criterios y Fórmulas Clave}
+
+\begin{table}[H]
+  \centering
+  \caption{Guía rápida de referencia -- Modelos (S)ARIMA y SARIMAX}
+  \label{tab:resumen}
+  \begin{tabular}{lp{6cm}p{4cm}}
+    \toprule
+    \textbf{Elemento} & \textbf{Fórmula / Descripción} & \textbf{Uso} \\
+    \midrule
+    Modelo SARIMA
+      & $\Phi(L)\tilde{\Phi}(L^s)\nabla^d\nabla_s^D Y_t = \Theta(L)\tilde{\Theta}(L^s)\varepsilon_t$
+      & Ecuación general del proceso \\
+    Diferenciación
+      & $\nabla Y_t = Y_t - Y_{t-1}$, \; $\nabla_s Y_t = Y_t - Y_{t-s}$
+      & Eliminar tendencia y estacionalidad \\
+    Parsimonia
+      & $p+d+q+P+D+Q \leq C$
+      & Evitar sobreajuste \\
+    AIC
+      & $-2\hat{\ell} + 2k$
+      & Selección de modelos \\
+    BIC
+      & $-2\hat{\ell} + k\ln(n)$
+      & Selección parsimoniosa \\
+    Ljung-Box
+      & $Q = n(n+2)\sum_{k=1}^h \hat{\rho}_k^2/(n-k)$
+      & Diagnóstico de residuos \\
+    SARIMAX
+      & $\Phi(L)\tilde{\Phi}(L^s)\nabla^d\nabla_s^D Y_t = x_t^\top\beta + \Theta(L)\tilde{\Theta}(L^s)\varepsilon_t$
+      & Incluir variables externas \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Conclusiones}
+
+Los modelos SARIMA y SARIMAX constituyen herramientas fundamentales en el
+análisis de series de tiempo para finanzas cuantitativas. La correcta
+identificación de los órdenes $(p,d,q)(P,D,Q)_s$ mediante las funciones ACF y
+PACF, combinada con el principio de parsimonia y la evaluación sistemática con
+criterios AIC/BIC y el test de Ljung-Box, permite construir modelos que capturan
+tanto la dinámica temporal como la estructura estacional de variables financieras
+y económicas.
+
+La extensión al modelo SARIMAX resulta especialmente valiosa cuando se dispone
+de variables exógenas con poder explicativo, como precios, indicadores
+macroeconómicos o variables climáticas, siempre que se garantice la
+disponibilidad de pronósticos de dichas variables para el horizonte de interés.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{thebibliography}{9}
+
+\bibitem{BoxJenkins1976}
+Box, G.\,E.\,P. y Jenkins, G.\,M. (1976).
+\textit{Time Series Analysis: Forecasting and Control}.
+Holden-Day, San Francisco.
+
+\bibitem{Hamilton1994}
+Hamilton, J.\,D. (1994).
+\textit{Time Series Analysis}.
+Princeton University Press.
+
+\bibitem{ShumwayStoffer2017}
+Shumway, R.\,H. y Stoffer, D.\,S. (2017).
+\textit{Time Series Analysis and Its Applications}.
+Springer.
+
+\bibitem{HyndmanAthanasopoulos2021}
+Hyndman, R.\,J. y Athanasopoulos, G. (2021).
+\textit{Forecasting: Principles and Practice}, 3.ª ed.
+OTexts. \url{https://otexts.com/fpp3/}
+
+\bibitem{BrockwellDavis2016}
+Brockwell, P.\,J. y Davis, R.\,A. (2016).
+\textit{Introduction to Time Series and Forecasting}.
+Springer.
+
+\end{thebibliography}
+
+\end{document}
